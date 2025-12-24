@@ -6,19 +6,15 @@ dotenv.config();
 const config: sql.config = {
   server: process.env.DB_SERVER || 'localhost',
   database: process.env.DB_NAME || 'rmhsample',
-  authentication: {
-    type: 'default',
-    options: {
-      userName: process.env.DB_USER || 'sa',
-      password: process.env.DB_PASSWORD || ''
-    }
-  },
+  port: parseInt(process.env.DB_PORT || '1433'),
+  user: process.env.DB_USER || 'sa',
+  password: process.env.DB_PASSWORD || '',
   options: {
-    encrypt: false, // Set to true for Azure
-    trustServerCertificate: true, // For local development
+    encrypt: false,
+    trustServerCertificate: true,
     enableArithAbort: true,
     connectTimeout: 30000,
-    requestTimeout: 30000
+    requestTimeout: 30000,
   },
   pool: {
     max: 20,

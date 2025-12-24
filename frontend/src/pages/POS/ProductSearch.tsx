@@ -1,121 +1,198 @@
-import React, { useState } from 'react';
-import { Search, Barcode } from 'lucide-react';
-import { useItems, useItemByCode } from '../../hooks/usePos';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Package, AlertCircle } from 'lucide-react';
+import { searchProducts, Item, getCategories, Category } from '../../services/posApi';
 import { usePOSStore } from '../../stores/posStore';
-import { Item } from '../../types/pos.types';
+import { notify } from '../../components/Notification';
 
 export const ProductSearch: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [barcodeInput, setBarcodeInput] = useState('');
-  const addToCart = usePOSStore((state) => state.addToCart);
+  const [query, setQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
+  const [products, setProducts] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  const { data: items = [], isLoading } = useItems(
-    searchTerm.length >= 2 ? searchTerm : undefined
-  );
-  
-  const { data: barcodeItem } = useItemByCode(barcodeInput, barcodeInput.length > 0);
-  
-  // Add barcode item to cart when found
-  React.useEffect(() => {
-    if (barcodeItem) {
-      addToCart(barcodeItem, 1);
-      setBarcodeInput('');
+  const { addToCart } = usePOSStore();
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await getCategories();
+        setCategories(data);
+      } catch (err: any) {
+        console.error('Error loading categories:', err);
+        notify.error('Failed to load categories');
+      }
+    };
+    loadCategories();
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const results = await searchProducts(query, selectedCategory, 50);
+      setProducts(results);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load products');
+      console.error('Error fetching products:', err);
+    } finally {
+      setIsLoading(false);
     }
-  }, [barcodeItem, addToCart]);
-  
-  const handleAddToCart = (item: Item) => {
-    addToCart(item, 1);
-  };
-  
-  const handleBarcodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && barcodeInput.length > 0) {
-      // Trigger barcode lookup
-      // The useItemByCode hook will automatically fetch when barcodeInput changes
+  }, [query, selectedCategory]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const getStockStatus = (quantity: number, reorderPoint: number) => {
+    if (quantity === 0) {
+      return { text: 'Out of Stock', color: 'bg-red-100 text-red-800 border-red-200' };
+    } else if (quantity <= reorderPoint) {
+      return { text: 'Low Stock', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    } else {
+      return { text: 'In Stock', color: 'bg-green-100 text-green-800 border-green-200' };
     }
   };
-  
+
+  const handleAddToCart = (product: Item) => {
+    if (product.Quantity > 0) {
+      addToCart(product, 1);
+      notify.success(`Added ${product.Description} to cart`);
+    } else {
+      notify.error('Product is out of stock');
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Search and Barcode Input */}
-      <div className="p-4 border-b space-y-3">
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-md">
+      {/* Search Header */}
+      <div className="p-4 border-b border-gray-200">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        
-        <div className="relative">
-          <Barcode className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Scan or enter barcode..."
-            value={barcodeInput}
-            onChange={(e) => setBarcodeInput(e.target.value)}
-            onKeyPress={handleBarcodeKeyPress}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            placeholder="Search products by name, SKU, or barcode..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            autoFocus
           />
         </div>
       </div>
-      
-      {/* Product Grid */}
+
+      {/* Category Tabs */}
+      <div className="px-4 py-2 border-b border-gray-200 overflow-x-auto">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedCategory(undefined)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              selectedCategory === undefined
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.ID}
+              onClick={() => setSelectedCategory(category.ID)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                selectedCategory === category.ID
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {category.Name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Products Grid */}
       <div className="flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="text-center py-8 text-gray-500">Loading products...</div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {searchTerm.length > 0 ? 'No products found' : 'Enter search term to find products'}
+        {isLoading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-gray-500">Loading products...</div>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {items.map((item) => (
-              <ProductCard key={item.ID} item={item} onAdd={handleAddToCart} />
-            ))}
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {!isLoading && !error && products.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <Package className="w-16 h-16 mb-4 opacity-50" />
+            <p>No products found</p>
+          </div>
+        )}
+
+        {!isLoading && !error && products.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {products.map((product) => {
+              const stockStatus = getStockStatus(product.Quantity, product.ReorderPoint);
+              const isOutOfStock = product.Quantity === 0;
+
+              return (
+                <div
+                  key={product.ItemID}
+                  className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer ${
+                    isOutOfStock ? 'opacity-60' : ''
+                  }`}
+                  onClick={() => !isOutOfStock && handleAddToCart(product)}
+                >
+                  {/* Product Header */}
+                  <div className="mb-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                        {product.Description}
+                      </h3>
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${stockStatus.color}`}>
+                        {stockStatus.text}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 font-mono">SKU: {product.ItemLookupCode}</p>
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="space-y-1 mb-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-600">Price:</span>
+                      <span className="text-lg font-bold text-blue-600">${product.Price.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-600">Stock:</span>
+                      <span className="text-sm font-medium text-gray-900">{product.Quantity} units</span>
+                    </div>
+                  </div>
+
+                  {/* Add Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddToCart(product);
+                    }}
+                    disabled={isOutOfStock}
+                    className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                      isOutOfStock
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                    }`}
+                  >
+                    {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
 };
-
-interface ProductCardProps {
-  item: Item;
-  onAdd: (item: Item) => void;
-}
-
-const ProductCard: React.FC<ProductCardProps> = ({ item, onAdd }) => {
-  return (
-    <button
-      onClick={() => onAdd(item)}
-      className="bg-white border rounded-lg p-4 hover:shadow-lg transition-shadow text-left"
-      disabled={!item.Active || item.Quantity <= 0}
-    >
-      <div className="font-semibold text-sm mb-1 truncate">{item.Description}</div>
-      {item.SubDescription1 && (
-        <div className="text-xs text-gray-600 mb-2 truncate">{item.SubDescription1}</div>
-      )}
-      <div className="flex items-center justify-between">
-        <span className="text-lg font-bold text-blue-600">
-          ${item.Price.toFixed(2)}
-        </span>
-        <span className={`text-xs px-2 py-1 rounded ${
-          item.Quantity > 10 
-            ? 'bg-green-100 text-green-800' 
-            : item.Quantity > 0 
-            ? 'bg-yellow-100 text-yellow-800'
-            : 'bg-red-100 text-red-800'
-        }`}>
-          Stock: {item.Quantity}
-        </span>
-      </div>
-      {item.ItemLookupCode && (
-        <div className="text-xs text-gray-500 mt-2">{item.ItemLookupCode}</div>
-      )}
-    </button>
-  );
-};
-

@@ -1,29 +1,19 @@
-import { Router } from 'express';
-import { InventoryController } from '../controllers/inventory.controller';
+import express from 'express';
+import {
+  getInventoryValue,
+  getLowStockItems,
+  getAllItems,
+} from '../controllers/inventory.controller';
+import { authenticateJWT } from '../middleware/auth';
 
-const router = Router();
-const inventoryController = new InventoryController();
+const router = express.Router();
 
-// Item CRUD routes
-router.get('/items', inventoryController.getItems);
-router.get('/items/:id', inventoryController.getItemById);
-router.post('/items', inventoryController.createItem);
-router.put('/items/:id', inventoryController.updateItem);
-router.delete('/items/:id', inventoryController.deleteItem);
+// All inventory routes require authentication
+router.use(authenticateJWT);
 
-// Inventory operations
-router.post('/adjust', inventoryController.adjustInventory);
-router.post('/transfer', inventoryController.transferInventory);
-router.post('/bulk-price-update', inventoryController.bulkUpdatePrices);
-
-// Inventory reporting
-router.get('/low-stock', inventoryController.getLowStockItems);
-router.get('/value', inventoryController.getInventoryValue);
-
-// Reference data
-router.get('/categories', inventoryController.getCategories);
-router.get('/departments', inventoryController.getDepartments);
-router.get('/suppliers', inventoryController.getSuppliers);
+// Inventory routes
+router.get('/value', getInventoryValue);
+router.get('/low-stock', getLowStockItems);
+router.get('/items', getAllItems);
 
 export default router;
-

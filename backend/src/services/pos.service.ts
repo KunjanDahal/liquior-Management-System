@@ -1,14 +1,11 @@
 import { ConnectionPool, Transaction as SqlTransaction } from 'mssql';
-import { getPool } from '../config/database';
+import { getConnection } from '../config/database';
 import {
   CreateTransactionRequest,
   TransactionResponse,
   TransactionSearchParams,
   TransactionDetailResponse,
   Transaction,
-  TransactionEntry,
-  TenderEntry,
-  TaxEntry,
   Item,
   Customer,
   Tender,
@@ -18,8 +15,13 @@ import { logger } from '../utils/logger';
 export class POSService {
   private pool: ConnectionPool;
 
-  constructor() {
-    this.pool = getPool();
+  constructor(pool: ConnectionPool) {
+    this.pool = pool;
+  }
+
+  static async create(): Promise<POSService> {
+    const pool = await getConnection();
+    return new POSService(pool);
   }
 
   /**
@@ -310,7 +312,7 @@ export class POSService {
    */
   async getItems(search?: string, categoryID?: number): Promise<Item[]> {
     try {
-      let whereClause = 'WHERE Active = 1';
+      let whereClause = 'WHERE ISNULL(Inactive, 0) = 0';
       if (search) {
         whereClause += ` AND (ItemLookupCode LIKE '%${search}%' OR Description LIKE '%${search}%')`;
       }
@@ -339,7 +341,7 @@ export class POSService {
     try {
       const result = await this.pool.request().query(`
         SELECT * FROM Item
-        WHERE ItemLookupCode = '${code}' AND Active = 1
+        WHERE ItemLookupCode = '${code}' AND ISNULL(Inactive, 0) = 0
       `);
 
       return result.recordset.length > 0 ? result.recordset[0] : null;
@@ -356,7 +358,7 @@ export class POSService {
     try {
       const result = await this.pool.request().query(`
         SELECT * FROM Tender
-        WHERE Active = 1
+        WHERE ISNULL(Inactive, 0) = 0
         ORDER BY Description
       `);
 
@@ -374,7 +376,7 @@ export class POSService {
     try {
       const result = await this.pool.request().query(`
         SELECT * FROM Customer
-        WHERE AccountNumber = '${accountNumber}' AND Active = 1
+        WHERE AccountNumber = '${accountNumber}'
       `);
 
       return result.recordset.length > 0 ? result.recordset[0] : null;
@@ -392,8 +394,7 @@ export class POSService {
       const result = await this.pool.request().query(`
         SELECT TOP 20 *
         FROM Customer
-        WHERE Active = 1
-        AND (
+        WHERE (
           FirstName LIKE '%${search}%'
           OR LastName LIKE '%${search}%'
           OR Company LIKE '%${search}%'
@@ -406,6 +407,42 @@ export class POSService {
       return result.recordset;
     } catch (error) {
       logger.error('Error searching customers:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all active categories
+   */
+  async getCategories(): Promise<any[]> {
+    try {
+      const result = await this.pool.request().query(`
+        SELECT *
+        FROM Category
+        ORDER BY Name
+      `);
+
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error getting categories:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all active departments
+   */
+  async getDepartments(): Promise<any[]> {
+    try {
+      const result = await this.pool.request().query(`
+        SELECT *
+        FROM Department
+        ORDER BY Name
+      `);
+
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error getting departments:', error);
       throw error;
     }
   }
@@ -471,7 +508,7 @@ export class POSService {
 
     // Get default tax rate (simplified - in reality you'd need more complex tax logic)
     const taxResult = await transaction.request().query(`
-      SELECT TOP 1 Percentage FROM Tax WHERE Active = 1 ORDER BY ID
+      SELECT TOP 1 Percentage FROM Tax ORDER BY ID
     `);
     const taxRate = taxResult.recordset.length > 0 ? taxResult.recordset[0].Percentage : 0;
     const taxTotal = (taxableAmount * taxRate) / 100;
@@ -486,7 +523,7 @@ export class POSService {
   private async calculateTaxes(
     transaction: SqlTransaction,
     items: any[],
-    subtotal: number
+    _subtotal: number
   ): Promise<Array<{ taxID: number; taxableAmount: number; taxAmount: number; taxPercentage: number }>> {
     const taxes: Array<{ taxID: number; taxableAmount: number; taxAmount: number; taxPercentage: number }> = [];
 
@@ -500,17 +537,19 @@ export class POSService {
     }
 
     if (taxableAmount > 0) {
+      // Get active taxes from database
       const taxResult = await transaction.request().query(`
-        SELECT * FROM Tax WHERE Active = 1
+        SELECT ID as TaxID, Percentage as TaxPercentage, Description
+        FROM Tax
       `);
 
       for (const tax of taxResult.recordset) {
-        const taxAmount = (taxableAmount * tax.Percentage) / 100;
+        const taxAmount = (taxableAmount * tax.TaxPercentage) / 100;
         taxes.push({
-          taxID: tax.ID,
+          taxID: tax.TaxID,
           taxableAmount,
           taxAmount,
-          taxPercentage: tax.Percentage,
+          taxPercentage: tax.TaxPercentage,
         });
       }
     }
@@ -519,7 +558,7 @@ export class POSService {
   }
 
   private async generateReceiptNumber(
-    transaction: SqlTransaction,
+    _transaction: SqlTransaction,
     storeID: number,
     transactionNumber: number
   ): Promise<string> {

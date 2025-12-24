@@ -9,38 +9,39 @@ import {
 import { useInventoryValue, useLowStockItems } from '../../hooks/useInventory';
 
 export const InventoryDashboard: React.FC = () => {
-  const { data: inventoryValue, isLoading: valueLoading } = useInventoryValue();
-  const { data: lowStockItems = [], isLoading: lowStockLoading } = useLowStockItems();
+  const { data: inventoryValue, isLoading: valueLoading, error: valueError } = useInventoryValue();
+  const { data: lowStockData, isLoading: lowStockLoading, error: lowStockError } = useLowStockItems();
+  
+  // Handle data structure
+  const lowStockItems = lowStockData?.lowStock || [];
+  const outOfStockItems = lowStockData?.outOfStock || [];
 
   const stats = [
     {
       name: 'Total Items',
-      value: inventoryValue?.totalItems.toLocaleString() || '0',
+      value: inventoryValue?.itemCount?.toLocaleString() || '0',
       icon: Package,
       color: 'bg-blue-500',
     },
     {
       name: 'Total Quantity',
-      value: inventoryValue?.totalQuantity.toLocaleString() || '0',
+      value: inventoryValue?.totalUnits?.toLocaleString() || '0',
       icon: BarChart3,
       color: 'bg-green-500',
     },
     {
       name: 'Inventory Value (Cost)',
-      value: `$${inventoryValue?.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+      value: `$${inventoryValue?.costValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
       icon: DollarSign,
       color: 'bg-purple-500',
     },
     {
       name: 'Potential Profit',
-      value: `$${inventoryValue?.potentialProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+      value: `$${inventoryValue?.potentialProfit?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
       icon: TrendingUp,
       color: 'bg-orange-500',
     },
   ];
-
-  const outOfStockItems = lowStockItems.filter((item) => item.status === 'out');
-  const lowStockOnlyItems = lowStockItems.filter((item) => item.status === 'low');
 
   return (
     <div className="p-6 space-y-6">
@@ -49,6 +50,21 @@ export const InventoryDashboard: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Inventory Dashboard</h1>
         <p className="text-gray-600">Monitor your inventory levels and value</p>
       </div>
+      
+      {/* Error Messages */}
+      {valueError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <p className="font-semibold">Error loading inventory value</p>
+          <p className="text-sm">{(valueError as Error).message}</p>
+        </div>
+      )}
+      
+      {lowStockError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <p className="font-semibold">Error loading stock alerts</p>
+          <p className="text-sm">{(lowStockError as Error).message}</p>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -81,7 +97,7 @@ export const InventoryDashboard: React.FC = () => {
               <h2 className="text-lg font-semibold text-gray-900">Out of Stock</h2>
             </div>
             <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
-              {outOfStockItems.length}
+              {lowStockData?.outOfStockCount || outOfStockItems.length}
             </span>
           </div>
           <div className="divide-y max-h-96 overflow-auto">
@@ -92,20 +108,20 @@ export const InventoryDashboard: React.FC = () => {
                 No out of stock items
               </div>
             ) : (
-              outOfStockItems.map((item) => (
-                <div key={item.itemID} className="px-6 py-3 hover:bg-gray-50">
+              outOfStockItems.map((item: any) => (
+                <div key={item.ItemID} className="px-6 py-3 hover:bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold text-sm">{item.description}</div>
-                      <div className="text-xs text-gray-500">{item.itemLookupCode}</div>
+                      <div className="font-semibold text-sm">{item.Description}</div>
+                      <div className="text-xs text-gray-500">{item.ItemLookupCode}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-red-600">
-                        {item.quantity} units
+                        {item.Quantity} units
                       </div>
-                      {item.reorderPoint && (
+                      {item.ReorderPoint && (
                         <div className="text-xs text-gray-500">
-                          Reorder: {item.reorderPoint}
+                          Reorder: {item.ReorderPoint}
                         </div>
                       )}
                     </div>
@@ -124,31 +140,31 @@ export const InventoryDashboard: React.FC = () => {
               <h2 className="text-lg font-semibold text-gray-900">Low Stock</h2>
             </div>
             <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
-              {lowStockOnlyItems.length}
+              {lowStockData?.lowStockCount || lowStockItems.length}
             </span>
           </div>
           <div className="divide-y max-h-96 overflow-auto">
             {lowStockLoading ? (
               <div className="p-4 text-center text-gray-500">Loading...</div>
-            ) : lowStockOnlyItems.length === 0 ? (
+            ) : lowStockItems.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
                 No low stock items
               </div>
             ) : (
-              lowStockOnlyItems.map((item) => (
-                <div key={item.itemID} className="px-6 py-3 hover:bg-gray-50">
+              lowStockItems.map((item: any) => (
+                <div key={item.ItemID} className="px-6 py-3 hover:bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold text-sm">{item.description}</div>
-                      <div className="text-xs text-gray-500">{item.itemLookupCode}</div>
+                      <div className="font-semibold text-sm">{item.Description}</div>
+                      <div className="text-xs text-gray-500">{item.ItemLookupCode}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-yellow-600">
-                        {item.quantity} units
+                        {item.Quantity} units
                       </div>
-                      {item.reorderPoint && (
+                      {item.ReorderPoint && (
                         <div className="text-xs text-gray-500">
-                          Reorder: {item.reorderPoint}
+                          Reorder: {item.ReorderPoint}
                         </div>
                       )}
                     </div>

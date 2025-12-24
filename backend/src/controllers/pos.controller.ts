@@ -1,226 +1,353 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { POSService } from '../services/pos.service';
-import { CreateTransactionRequest, TransactionSearchParams } from '../models/pos.types';
+import { CreateTransactionRequest } from '../models/pos.types';
 import { logger } from '../utils/logger';
 
-export class POSController {
-  private posService: POSService;
+// Create a single instance of POS service (will be initialized on first use)
+let posService: POSService | null = null;
 
-  constructor() {
-    this.posService = new POSService();
+async function getPOSService(): Promise<POSService> {
+  if (!posService) {
+    posService = await POSService.create();
   }
+  return posService;
+}
 
-  /**
-   * Create a new transaction
-   * POST /api/pos/transactions
-   */
-  createTransaction = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const request: CreateTransactionRequest = req.body;
+/**
+ * Search for items/products
+ * GET /api/pos/items?q=search&category=1&limit=50
+ */
+export const searchItems = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = req.query.q as string;
+    const categoryId = req.query.category ? parseInt(req.query.category as string) : undefined;
 
-      // Validate request
-      if (!request.storeID || !request.registerID || !request.cashierID) {
+    const service = await getPOSService();
+    const items = await service.getItems(query, categoryId);
+
+    res.json({
+      success: true,
+      data: items,
+      count: items.length,
+    });
+  } catch (error: any) {
+    logger.error('Error searching items:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search items',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get item by ID
+ * GET /api/pos/items/:id
+ */
+export const getItemById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const itemId = parseInt(req.params.id);
+    const service = await getPOSService();
+    
+    // Query item by ID from database
+    const items = await service.getItems(undefined, undefined);
+    const item = items.find(i => i.ID === itemId);
+
+    if (!item) {
+      res.status(404).json({
+        success: false,
+        message: 'Item not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: item,
+    });
+  } catch (error: any) {
+    logger.error('Error getting item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get item',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get item by barcode
+ * GET /api/pos/items/barcode/:code
+ */
+export const getItemByBarcode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const barcode = req.params.code;
+    const service = await getPOSService();
+    const item = await service.getItemByCode(barcode);
+
+    if (!item) {
+      res.status(404).json({
+        success: false,
+        message: 'Item not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: item,
+    });
+  } catch (error: any) {
+    logger.error('Error getting item by barcode:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get item by barcode',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Search for customers
+ * GET /api/pos/customers?q=search&limit=20
+ */
+export const searchCustomers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = (req.query.q as string) || '';
+
+    const service = await getPOSService();
+    const customers = await service.searchCustomers(query);
+
+    res.json({
+      success: true,
+      data: customers,
+      count: customers.length,
+    });
+  } catch (error: any) {
+    logger.error('Error searching customers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search customers',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get customer by ID
+ * GET /api/pos/customers/:id
+ */
+export const getCustomerById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const service = await getPOSService();
+    
+    // Search for customer by ID
+    const customers = await service.searchCustomers('');
+    const customer = customers.find(c => c.ID === customerId);
+
+    if (!customer) {
+      res.status(404).json({
+        success: false,
+        message: 'Customer not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: customer,
+    });
+  } catch (error: any) {
+    logger.error('Error getting customer:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get customer',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get all active tenders (payment methods)
+ * GET /api/pos/tenders
+ */
+export const getTenders = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const service = await getPOSService();
+    const tenders = await service.getTenders();
+
+    res.json({
+      success: true,
+      data: tenders,
+    });
+  } catch (error: any) {
+    logger.error('Error getting tenders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get tenders',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Create a new transaction
+ * POST /api/pos/transactions
+ */
+export const createTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const transactionRequest: CreateTransactionRequest = req.body;
+
+    // Validation
+    if (!transactionRequest.items || transactionRequest.items.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Transaction must have at least one item',
+      });
+      return;
+    }
+
+    const service = await getPOSService();
+
+    // Check stock for all items
+    for (const item of transactionRequest.items) {
+      const items = await service.getItems();
+      const foundItem = items.find(i => i.ID === item.itemID);
+      if (!foundItem || foundItem.Quantity < item.quantity) {
         res.status(400).json({
-          error: 'Missing required fields: storeID, registerID, cashierID',
+          success: false,
+          message: `Insufficient stock for item ${item.itemID}. Available: ${foundItem?.Quantity || 0}`,
         });
         return;
       }
-
-      if (!request.items || request.items.length === 0) {
-        res.status(400).json({ error: 'Transaction must have at least one item' });
-        return;
-      }
-
-      if (!request.tenders || request.tenders.length === 0) {
-        res.status(400).json({ error: 'Transaction must have at least one tender' });
-        return;
-      }
-
-      const result = await this.posService.createTransaction(request);
-      res.status(201).json(result);
-    } catch (error: any) {
-      logger.error('Error in createTransaction:', error);
-      next(error);
     }
-  };
 
-  /**
-   * Search transactions
-   * GET /api/pos/transactions
-   */
-  searchTransactions = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const params: TransactionSearchParams = {
-        storeID: req.query.storeID ? parseInt(req.query.storeID as string) : undefined,
-        customerID: req.query.customerID ? parseInt(req.query.customerID as string) : undefined,
-        cashierID: req.query.cashierID ? parseInt(req.query.cashierID as string) : undefined,
-        status: req.query.status ? parseInt(req.query.status as string) : undefined,
-        minAmount: req.query.minAmount ? parseFloat(req.query.minAmount as string) : undefined,
-        maxAmount: req.query.maxAmount ? parseFloat(req.query.maxAmount as string) : undefined,
-        startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
-        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
-        page: req.query.page ? parseInt(req.query.page as string) : 1,
-        pageSize: req.query.pageSize ? parseInt(req.query.pageSize as string) : 20,
-      };
+    const result = await service.createTransaction(transactionRequest);
 
-      const result = await this.posService.searchTransactions(params);
-      res.json(result);
-    } catch (error: any) {
-      logger.error('Error in searchTransactions:', error);
-      next(error);
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Transaction created successfully'
+    });
+  } catch (error: any) {
+    logger.error('Error creating transaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create transaction',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get transaction by ID
+ * GET /api/pos/transactions/:id
+ */
+export const getTransactionById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const transactionId = parseInt(req.params.id);
+    const service = await getPOSService();
+    
+    // Assuming storeID 1 as default (will need proper store context later)
+    const transaction = await service.getTransactionDetails(1, transactionId);
+
+    if (!transaction) {
+      res.status(404).json({
+        success: false,
+        message: 'Transaction not found',
+      });
+      return;
     }
-  };
 
-  /**
-   * Get transaction details
-   * GET /api/pos/transactions/:storeID/:transactionNumber
-   */
-  getTransactionDetails = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const storeID = parseInt(req.params.storeID);
-      const transactionNumber = parseInt(req.params.transactionNumber);
+    res.json({
+      success: true,
+      data: transaction,
+    });
+  } catch (error: any) {
+    logger.error('Error getting transaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get transaction',
+      error: error.message,
+    });
+  }
+};
 
-      if (isNaN(storeID) || isNaN(transactionNumber)) {
-        res.status(400).json({ error: 'Invalid storeID or transactionNumber' });
-        return;
-      }
+/**
+ * Get recent transactions
+ * GET /api/pos/transactions
+ */
+export const getRecentTransactions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+    const service = await getPOSService();
+    
+    const result = await service.searchTransactions({
+      pageSize: limit,
+      page: 1
+    });
 
-      const result = await this.posService.getTransactionDetails(storeID, transactionNumber);
-      res.json(result);
-    } catch (error: any) {
-      if (error.message === 'Transaction not found') {
-        res.status(404).json({ error: error.message });
-        return;
-      }
-      logger.error('Error in getTransactionDetails:', error);
-      next(error);
-    }
-  };
+    res.json({
+      success: true,
+      data: result.transactions,
+      count: result.transactions.length,
+      total: result.total
+    });
+  } catch (error: any) {
+    logger.error('Error getting recent transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get recent transactions',
+      error: error.message,
+    });
+  }
+};
 
-  /**
-   * Get items for POS
-   * GET /api/pos/items
-   */
-  getItems = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const search = req.query.search as string | undefined;
-      const categoryID = req.query.categoryID ? parseInt(req.query.categoryID as string) : undefined;
+/**
+ * Get all active categories
+ * GET /api/pos/categories
+ */
+export const getCategories = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const service = await getPOSService();
+    const categories = await service.getCategories();
 
-      const items = await this.posService.getItems(search, categoryID);
-      res.json(items);
-    } catch (error: any) {
-      logger.error('Error in getItems:', error);
-      next(error);
-    }
-  };
+    res.json({
+      success: true,
+      data: categories,
+      count: categories.length,
+    });
+  } catch (error: any) {
+    logger.error('Error getting categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get categories',
+      error: error.message,
+    });
+  }
+};
 
-  /**
-   * Get item by barcode
-   * GET /api/pos/items/code/:code
-   */
-  getItemByCode = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const code = req.params.code;
-      const item = await this.posService.getItemByCode(code);
+/**
+ * Get all active departments
+ * GET /api/pos/departments
+ */
+export const getDepartments = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const service = await getPOSService();
+    const departments = await service.getDepartments();
 
-      if (!item) {
-        res.status(404).json({ error: 'Item not found' });
-        return;
-      }
-
-      res.json(item);
-    } catch (error: any) {
-      logger.error('Error in getItemByCode:', error);
-      next(error);
-    }
-  };
-
-  /**
-   * Get available tenders
-   * GET /api/pos/tenders
-   */
-  getTenders = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const tenders = await this.posService.getTenders();
-      res.json(tenders);
-    } catch (error: any) {
-      logger.error('Error in getTenders:', error);
-      next(error);
-    }
-  };
-
-  /**
-   * Get customer by account number
-   * GET /api/pos/customers/account/:accountNumber
-   */
-  getCustomerByAccount = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const accountNumber = req.params.accountNumber;
-      const customer = await this.posService.getCustomerByAccount(accountNumber);
-
-      if (!customer) {
-        res.status(404).json({ error: 'Customer not found' });
-        return;
-      }
-
-      res.json(customer);
-    } catch (error: any) {
-      logger.error('Error in getCustomerByAccount:', error);
-      next(error);
-    }
-  };
-
-  /**
-   * Search customers
-   * GET /api/pos/customers/search
-   */
-  searchCustomers = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const search = req.query.q as string;
-
-      if (!search || search.length < 2) {
-        res.status(400).json({ error: 'Search query must be at least 2 characters' });
-        return;
-      }
-
-      const customers = await this.posService.searchCustomers(search);
-      res.json(customers);
-    } catch (error: any) {
-      logger.error('Error in searchCustomers:', error);
-      next(error);
-    }
-  };
-}
-
+    res.json({
+      success: true,
+      data: departments,
+      count: departments.length,
+    });
+  } catch (error: any) {
+    logger.error('Error getting departments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get departments',
+      error: error.message,
+    });
+  }
+};

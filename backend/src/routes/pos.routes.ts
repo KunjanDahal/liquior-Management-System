@@ -1,24 +1,43 @@
-import { Router } from 'express';
-import { POSController } from '../controllers/pos.controller';
+import express from 'express';
+import {
+  searchItems,
+  getItemById,
+  getItemByBarcode,
+  searchCustomers,
+  getCustomerById,
+  getTenders,
+  createTransaction,
+  getTransactionById,
+  getRecentTransactions,
+  getCategories,
+  getDepartments,
+} from '../controllers/pos.controller';
+import { authenticateJWT } from '../middleware/auth';
 
-const router = Router();
-const posController = new POSController();
+const router = express.Router();
 
-// Transaction routes
-router.post('/transactions', posController.createTransaction);
-router.get('/transactions', posController.searchTransactions);
-router.get('/transactions/:storeID/:transactionNumber', posController.getTransactionDetails);
+// All POS routes require authentication
+router.use(authenticateJWT);
 
 // Item routes
-router.get('/items', posController.getItems);
-router.get('/items/code/:code', posController.getItemByCode);
-
-// Tender routes
-router.get('/tenders', posController.getTenders);
+router.get('/items', searchItems);
+router.get('/items/barcode/:code', getItemByBarcode);
+router.get('/items/:id', getItemById);
 
 // Customer routes
-router.get('/customers/account/:accountNumber', posController.getCustomerByAccount);
-router.get('/customers/search', posController.searchCustomers);
+router.get('/customers', searchCustomers);
+router.get('/customers/:id', getCustomerById);
+
+// Tender routes
+router.get('/tenders', getTenders);
+
+// Category and Department routes
+router.get('/categories', getCategories);
+router.get('/departments', getDepartments);
+
+// Transaction routes
+router.post('/transactions', createTransaction);
+router.get('/transactions/:id', getTransactionById);
+router.get('/transactions', getRecentTransactions);
 
 export default router;
-

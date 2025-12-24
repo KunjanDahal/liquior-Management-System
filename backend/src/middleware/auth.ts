@@ -4,9 +4,8 @@ import { AppError } from './errorHandler';
 
 export interface JWTPayload {
   userId: number;
-  cashierId?: number;
-  storeId: number;
-  role: string;
+  username: string;
+  timestamp?: number;
 }
 
 export interface AuthRequest extends Request {
@@ -18,7 +17,7 @@ export interface AuthRequest extends Request {
  */
 export const authenticateJWT = (
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   try {
@@ -63,7 +62,7 @@ export const generateToken = (payload: JWTPayload): string => {
     throw new AppError('JWT secret not configured', 500);
   }
 
-  return jwt.sign(payload, jwtSecret, { expiresIn: jwtExpiresIn });
+  return jwt.sign(payload, jwtSecret, { expiresIn: jwtExpiresIn } as jwt.SignOptions);
 };
 
 /**
@@ -71,7 +70,7 @@ export const generateToken = (payload: JWTPayload): string => {
  */
 export const optionalAuth = (
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   const authHeader = req.headers.authorization;

@@ -5,8 +5,10 @@ import { getConnection, closeConnection } from './config/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { logger } from './utils/logger';
+import authRoutes from './routes/auth.routes';
 import posRoutes from './routes/pos.routes';
 import inventoryRoutes from './routes/inventory.routes';
+import customerRoutes from './routes/customer.routes';
 
 // Load environment variables
 dotenv.config();
@@ -34,8 +36,10 @@ app.get('/health', (_req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/pos', posRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/customers', customerRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -48,15 +52,35 @@ app.use(errorHandler);
  */
 async function startServer(): Promise<void> {
   try {
-    // Test database connection
+    // Test database connection (optional - server will start even if DB is unavailable)
     logger.info('Testing database connection...');
-    await getConnection();
+    try {
+      await getConnection();
+      logger.info('✅ Database connected successfully');
+    } catch (dbError) {
+      logger.warn('⚠️  Database connection failed - using mock data');
+      logger.warn('   To use real database, ensure SQL Server is running and .env is configured');
+    }
     
     // Start listening
     app.listen(PORT, () => {
-      logger.info(`🚀 Server running on http://localhost:${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`Database: ${process.env.DB_NAME || 'rmhsample'}`);
+      logger.info('');
+      logger.info('═══════════════════════════════════════════════════');
+      logger.info(`🚀 RMH POS Backend Server Started`);
+      logger.info('═══════════════════════════════════════════════════');
+      logger.info(`   URL:         http://localhost:${PORT}`);
+      logger.info(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      logger.info(`   Database:    ${process.env.DB_NAME || 'rmhsample (mock)'}`);
+      logger.info('═══════════════════════════════════════════════════');
+      logger.info('');
+      logger.info('📝 Available Cashiers (use Number field as username):');
+      logger.info('   Number: 100 - Administrator (Security Level: 0)');
+      logger.info('   Number: 101 - Eugenia Dean (Security Level: 5)');
+      logger.info('   Number: 102 - Tanguy Parry (Security Level: 6)');
+      logger.info('   Number: 103 - Tony Brandi (Security Level: 7)');
+      logger.info('   Number: 999 - 999 (Security Level: 0)');
+      logger.info('   Note: Passwords are NULL in sample DB (any password will work)');
+      logger.info('');
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
@@ -81,4 +105,3 @@ process.on('SIGTERM', async () => {
 startServer();
 
 export default app;
-

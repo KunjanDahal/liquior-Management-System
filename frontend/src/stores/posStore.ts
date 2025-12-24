@@ -1,152 +1,209 @@
 import { create } from 'zustand';
-import { CartItem, Customer, Item } from '../types/pos.types';
+import { Item, Customer, Tender, TransactionTender } from '../services/posApi';
+
+export interface CartItem extends Item {
+  cartQuantity: number;
+  cartPrice: number;
+  lineComment?: string;
+}
 
 interface POSState {
-  // Cart
-  cartItems: CartItem[];
-  customer: Customer | null;
+  // Cart state
+  cart: CartItem[];
+  selectedCustomer: Customer | null;
   
-  // Settings
-  storeID: number;
-  registerID: string;
-  cashierID: number;
+  // UI state
+  isCheckoutModalOpen: boolean;
+  isCustomerModalOpen: boolean;
+  isLoading: boolean;
+  error: string | null;
   
-  // Actions
+  // Payment state
+  appliedTenders: TransactionTender[];
+  
+  // Cart actions
   addToCart: (item: Item, quantity?: number) => void;
-  removeFromCart: (itemID: number) => void;
-  updateQuantity: (itemID: number, quantity: number) => void;
-  updatePrice: (itemID: number, price: number) => void;
-  updateComment: (itemID: number, comment: string) => void;
+  removeFromCart: (itemId: number) => void;
+  updateQuantity: (itemId: number, quantity: number) => void;
+  updatePrice: (itemId: number, price: number) => void;
+  updateLineComment: (itemId: number, comment: string) => void;
   clearCart: () => void;
   
-  setCustomer: (customer: Customer | null) => void;
+  // Customer actions
+  selectCustomer: (customer: Customer | null) => void;
   
-  setStoreID: (storeID: number) => void;
-  setRegisterID: (registerID: string) => void;
-  setCashierID: (cashierID: number) => void;
+  // Modal actions
+  openCheckoutModal: () => void;
+  closeCheckoutModal: () => void;
+  openCustomerModal: () => void;
+  closeCustomerModal: () => void;
   
-  // Computed
-  getCartTotal: () => number;
-  getCartSubtotal: () => number;
-  getCartTax: () => number;
-  getCartItemCount: () => number;
+  // Payment actions
+  addTender: (tender: TransactionTender) => void;
+  clearTenders: () => void;
+  
+  // Calculated values
+  getSubtotal: () => number;
+  getTaxableAmount: () => number;
+  getTaxAmount: () => number;
+  getTotal: () => number;
+  getTotalPaid: () => number;
+  getRemainingBalance: () => number;
+  
+  // UI actions
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
 }
+
+const TAX_RATE = 0.08; // 8% sales tax (from mock data)
 
 export const usePOSStore = create<POSState>((set, get) => ({
   // Initial state
-  cartItems: [],
-  customer: null,
-  storeID: 1, // Default store
-  registerID: 'POS1', // Default register
-  cashierID: 1, // Default cashier (should be set on login)
+  cart: [],
+  selectedCustomer: null,
+  isCheckoutModalOpen: false,
+  isCustomerModalOpen: false,
+  isLoading: false,
+  error: null,
+  appliedTenders: [],
   
-  // Actions
+  // Cart actions
   addToCart: (item: Item, quantity = 1) => {
-    const { cartItems } = get();
-    const existingItemIndex = cartItems.findIndex(
-      (ci) => ci.item.ID === item.ID
-    );
+    const cart = get().cart;
+    const existingItem = cart.find(i => i.ItemID === item.ItemID);
     
-    if (existingItemIndex >= 0) {
-      // Update quantity if item already in cart
-      const newItems = [...cartItems];
-      newItems[existingItemIndex].quantity += quantity;
-      set({ cartItems: newItems });
-    } else {
-      // Add new item to cart
+    if (existingItem) {
       set({
-        cartItems: [
-          ...cartItems,
+        cart: cart.map(i =>
+          i.ItemID === item.ItemID
+            ? { ...i, cartQuantity: i.cartQuantity + quantity }
+            : i
+        ),
+      });
+    } else {
+      set({
+        cart: [
+          ...cart,
           {
-            item,
-            quantity,
-            price: item.Price,
+            ...item,
+            cartQuantity: quantity,
+            cartPrice: item.Price,
           },
         ],
       });
     }
   },
   
-  removeFromCart: (itemID: number) => {
-    set({
-      cartItems: get().cartItems.filter((ci) => ci.item.ID !== itemID),
-    });
+  removeFromCart: (itemId: number) => {
+    set({ cart: get().cart.filter(i => i.ItemID !== itemId) });
   },
   
-  updateQuantity: (itemID: number, quantity: number) => {
+  updateQuantity: (itemId: number, quantity: number) => {
     if (quantity <= 0) {
-      get().removeFromCart(itemID);
+      get().removeFromCart(itemId);
       return;
     }
     
     set({
-      cartItems: get().cartItems.map((ci) =>
-        ci.item.ID === itemID ? { ...ci, quantity } : ci
+      cart: get().cart.map(i =>
+        i.ItemID === itemId ? { ...i, cartQuantity: quantity } : i
       ),
     });
   },
   
-  updatePrice: (itemID: number, price: number) => {
+  updatePrice: (itemId: number, price: number) => {
     set({
-      cartItems: get().cartItems.map((ci) =>
-        ci.item.ID === itemID ? { ...ci, price } : ci
+      cart: get().cart.map(i =>
+        i.ItemID === itemId ? { ...i, cartPrice: price } : i
       ),
     });
   },
   
-  updateComment: (itemID: number, comment: string) => {
+  updateLineComment: (itemId: number, comment: string) => {
     set({
-      cartItems: get().cartItems.map((ci) =>
-        ci.item.ID === itemID ? { ...ci, comment } : ci
+      cart: get().cart.map(i =>
+        i.ItemID === itemId ? { ...i, lineComment: comment } : i
       ),
     });
   },
   
   clearCart: () => {
-    set({ cartItems: [], customer: null });
+    set({
+      cart: [],
+      selectedCustomer: null,
+      appliedTenders: [],
+      error: null,
+    });
   },
   
-  setCustomer: (customer: Customer | null) => {
-    set({ customer });
+  // Customer actions
+  selectCustomer: (customer: Customer | null) => {
+    set({ selectedCustomer: customer });
   },
   
-  setStoreID: (storeID: number) => {
-    set({ storeID });
+  // Modal actions
+  openCheckoutModal: () => {
+    if (get().cart.length === 0) {
+      set({ error: 'Cart is empty' });
+      return;
+    }
+    set({ isCheckoutModalOpen: true, error: null });
   },
   
-  setRegisterID: (registerID: string) => {
-    set({ registerID });
+  closeCheckoutModal: () => {
+    set({ isCheckoutModalOpen: false, appliedTenders: [] });
   },
   
-  setCashierID: (cashierID: number) => {
-    set({ cashierID });
+  openCustomerModal: () => {
+    set({ isCustomerModalOpen: true });
   },
   
-  // Computed values
-  getCartSubtotal: () => {
-    return get().cartItems.reduce(
-      (sum, ci) => sum + ci.price * ci.quantity,
-      0
-    );
+  closeCustomerModal: () => {
+    set({ isCustomerModalOpen: false });
   },
   
-  getCartTax: () => {
-    const { cartItems } = get();
-    const taxableAmount = cartItems
-      .filter((ci) => ci.item.Taxable)
-      .reduce((sum, ci) => sum + ci.price * ci.quantity, 0);
-    
-    // Default tax rate (in reality, this should come from configuration or API)
-    const taxRate = 0.08; // 8%
-    return taxableAmount * taxRate;
+  // Payment actions
+  addTender: (tender: TransactionTender) => {
+    set({ appliedTenders: [...get().appliedTenders, tender] });
   },
   
-  getCartTotal: () => {
-    return get().getCartSubtotal() + get().getCartTax();
+  clearTenders: () => {
+    set({ appliedTenders: [] });
   },
   
-  getCartItemCount: () => {
-    return get().cartItems.reduce((sum, ci) => sum + ci.quantity, 0);
+  // Calculated values
+  getSubtotal: () => {
+    return get().cart.reduce((sum, item) => sum + item.cartPrice * item.cartQuantity, 0);
+  },
+  
+  getTaxableAmount: () => {
+    return get().cart
+      .filter(item => item.Taxable)
+      .reduce((sum, item) => sum + item.cartPrice * item.cartQuantity, 0);
+  },
+  
+  getTaxAmount: () => {
+    return get().getTaxableAmount() * TAX_RATE;
+  },
+  
+  getTotal: () => {
+    return get().getSubtotal() + get().getTaxAmount();
+  },
+  
+  getTotalPaid: () => {
+    return get().appliedTenders.reduce((sum, tender) => sum + tender.amount, 0);
+  },
+  
+  getRemainingBalance: () => {
+    return get().getTotal() - get().getTotalPaid();
+  },
+  
+  // UI actions
+  setLoading: (loading: boolean) => {
+    set({ isLoading: loading });
+  },
+  
+  setError: (error: string | null) => {
+    set({ error });
   },
 }));
-
