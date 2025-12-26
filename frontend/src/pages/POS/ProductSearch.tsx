@@ -66,43 +66,43 @@ export const ProductSearch: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-md">
-      {/* Search Header */}
-      <div className="p-4 border-b border-gray-200">
+    <div className="flex flex-col h-full">
+      {/* Compact Search Header */}
+      <div className="p-4 bg-gray-50 border-b border-gray-200">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search products by name, SKU, or barcode..."
+            placeholder="Search or scan barcode..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:border-indigo-400 transition-all duration-200 text-sm"
             autoFocus
           />
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="px-4 py-2 border-b border-gray-200 overflow-x-auto">
+      {/* Compact Category Pills */}
+      <div className="px-4 py-3 bg-white border-b border-gray-200 overflow-x-auto">
         <div className="flex gap-2">
           <button
             onClick={() => setSelectedCategory(undefined)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 whitespace-nowrap ${
               selectedCategory === undefined
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 scale-105'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105 active:scale-95'
             }`}
           >
             All
           </button>
-          {categories.map((category) => (
+          {categories.slice(0, 8).map((category) => (
             <button
               key={category.ID}
               onClick={() => setSelectedCategory(category.ID)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 selectedCategory === category.ID
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 scale-105'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105 active:scale-95'
               }`}
             >
               {category.Name}
@@ -111,83 +111,85 @@ export const ProductSearch: React.FC = () => {
         </div>
       </div>
 
-      {/* Products Grid */}
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* Streamlined Products Grid */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {isLoading && (
           <div className="flex items-center justify-center h-full">
-            <div className="text-gray-500">Loading products...</div>
+            <div className="spinner"></div>
           </div>
         )}
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="alert alert-danger">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
           </div>
         )}
 
         {!isLoading && !error && products.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500">
-            <Package className="w-16 h-16 mb-4 opacity-50" />
-            <p>No products found</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <Package className="w-16 h-16 mb-3 opacity-30" />
+            <p className="text-sm">No products found</p>
           </div>
         )}
 
         {!isLoading && !error && products.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {products.map((product) => {
-              const stockStatus = getStockStatus(product.Quantity, product.ReorderPoint);
               const isOutOfStock = product.Quantity === 0;
+              const isLowStock = product.Quantity > 0 && product.Quantity <= product.ReorderPoint;
 
               return (
-                <div
+                <button
                   key={product.ItemID}
-                  className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer ${
-                    isOutOfStock ? 'opacity-60' : ''
-                  }`}
                   onClick={() => !isOutOfStock && handleAddToCart(product)}
+                  disabled={isOutOfStock}
+                  className={`group relative bg-white border-2 rounded-xl p-3 text-left transition-all duration-200 ${
+                    isOutOfStock 
+                      ? 'border-gray-200 opacity-50 cursor-not-allowed' 
+                      : 'border-gray-200 hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-500/20 hover:-translate-y-1 cursor-pointer active:translate-y-0 active:scale-[0.98]'
+                  }`}
                 >
-                  {/* Product Header */}
-                  <div className="mb-3">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
-                        {product.Description}
-                      </h3>
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${stockStatus.color}`}>
-                        {stockStatus.text}
-                      </span>
+                  {/* Stock Badge */}
+                  {isOutOfStock && (
+                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-full z-10">
+                      Out
                     </div>
-                    <p className="text-xs text-gray-500 font-mono">SKU: {product.ItemLookupCode}</p>
-                  </div>
+                  )}
+                  {isLowStock && !isOutOfStock && (
+                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold rounded-full z-10 group-hover:bg-amber-100 transition-colors">
+                      Low
+                    </div>
+                  )}
 
                   {/* Product Info */}
-                  <div className="space-y-1 mb-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-600">Price:</span>
-                      <span className="text-lg font-bold text-blue-600">${product.Price.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-600">Stock:</span>
-                      <span className="text-sm font-medium text-gray-900">{product.Quantity} units</span>
+                  <div className="mb-3 relative z-0">
+                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1 group-hover:text-indigo-600 transition-colors duration-200">
+                      {product.Description}
+                    </h3>
+                    <p className="text-xs text-gray-500 font-mono group-hover:text-gray-600 transition-colors duration-200">{product.ItemLookupCode}</p>
+                  </div>
+
+                  {/* Price & Stock */}
+                  <div className="space-y-1 relative z-0">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xl font-bold text-indigo-600 group-hover:text-indigo-700 group-hover:scale-105 inline-block transition-all duration-200">${product.Price.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors duration-200">{product.Quantity} in stock</span>
                     </div>
                   </div>
 
-                  {/* Add Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddToCart(product);
-                    }}
-                    disabled={isOutOfStock}
-                    className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                      isOutOfStock
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
-                    }`}
-                  >
-                    {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-                  </button>
-                </div>
+                  {/* Professional Hover Overlay */}
+                  {!isOutOfStock && (
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-500/0 via-indigo-500/0 to-indigo-500/0 group-hover:from-indigo-500/5 group-hover:via-indigo-500/3 group-hover:to-indigo-500/5 transition-all duration-200 pointer-events-none rounded-xl"></div>
+                  )}
+
+                  {/* Shine Effect on Hover */}
+                  {!isOutOfStock && (
+                    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
+                    </div>
+                  )}
+                </button>
               );
             })}
           </div>

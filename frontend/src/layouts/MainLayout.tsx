@@ -40,78 +40,105 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Modern Sidebar */}
-      <aside className="w-72 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 text-white flex flex-col shadow-2xl">
+      {/* Modern Professional Sidebar */}
+      <aside className="w-72 bg-[#1a1d29] text-white flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.12)] relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-[0.02] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] pointer-events-none"></div>
+        
         {/* Brand Header */}
-        <div className="p-6 border-b border-gray-800">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Store className="w-7 h-7" />
+        <div className="relative p-6 border-b border-white/5">
+          <div className="flex items-center gap-3.5 mb-5">
+            <div className="relative">
+              <div className="w-11 h-11 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <Store className="w-6 h-6 text-white" />
+              </div>
+              <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-[#1a1d29]"></div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white tracking-tight">
                 RMH POS System
               </h1>
-              <p className="text-xs text-gray-400">Enterprise Edition</p>
+              <p className="text-xs text-gray-400 font-medium mt-0.5">Enterprise Edition</p>
             </div>
           </div>
           
-          {/* User Info Card */}
-          <div className="bg-gray-800 bg-opacity-50 rounded-lg p-3 backdrop-blur">
+          {/* User Info Card - Enhanced */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3.5 border border-white/5 hover:bg-white/[0.07] transition-all duration-200 cursor-pointer group">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center font-semibold">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              <div className="relative">
+                <div className="w-11 h-11 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center font-semibold text-white text-sm shadow-md">
+                  {user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || 'U'}
+                </div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-[#1a1d29]"></div>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">
-                  {user?.firstName} {user?.lastName}
+                  {user?.firstName || 'Admin'} {user?.lastName || 'User'}
                 </p>
-                <p className="text-xs text-gray-400">{user?.role || 'Admin'}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{user?.role || 'Administrator'}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-3">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
+          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2 mt-1">
             Main Menu
           </div>
           {menuItems.map((item) => {
             const active = isActive(item.path);
+            const IconComponent = item.icon;
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group
+                  relative flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors duration-200 group
                   ${active 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50' 
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/30' 
+                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
                   }
                 `}
               >
-                <item.icon className={`w-5 h-5 ${active ? 'text-white' : item.color}`} />
-                <span className="flex-1 font-medium">{item.label}</span>
-                {active && <ChevronRight className="w-4 h-4" />}
+                {/* Active indicator bar */}
+                {active && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full"></div>
+                )}
+                
+                <div className={`relative ${active ? 'text-white' : item.color}`}>
+                  <IconComponent className="w-5 h-5 transition-all duration-200 group-hover:scale-105" strokeWidth={active ? 2.5 : 2} />
+                </div>
+                
+                <span className={`flex-1 font-medium text-sm ${active ? 'text-white' : 'text-gray-300'}`}>
+                  {item.label}
+                </span>
+                
+                {active && (
+                  <ChevronRight className="w-4 h-4 text-white/80 opacity-80" />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Quick Actions */}
-        <div className="p-4 border-t border-gray-800 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 rounded-lg transition-colors">
-            <Bell className="w-4 h-4" />
-            <span>Notifications</span>
-            <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">3</span>
+        {/* Quick Actions - Enhanced */}
+        <div className="relative p-4 border-t border-white/5 space-y-2 bg-white/[0.02]">
+          <button className="w-full flex items-center gap-3 px-3.5 py-3 text-sm text-gray-400 hover:bg-white/5 hover:text-white rounded-xl transition-colors duration-200 group">
+            <div className="relative">
+              <Bell className="w-5 h-5 transition-transform duration-200 group-hover:scale-105" />
+            </div>
+            <span className="flex-1 font-medium text-left">Notifications</span>
+            <span className="bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-lg shadow-red-500/30">
+              3
+            </span>
           </button>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500 hover:bg-opacity-10 rounded-lg transition-colors"
+            className="w-full flex items-center gap-3 px-3.5 py-3 text-sm text-red-400/80 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-colors duration-200 group border border-transparent hover:border-red-500/20"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
+            <LogOut className="w-5 h-5 transition-transform duration-200 group-hover:scale-105" />
+            <span className="flex-1 font-medium text-left">Logout</span>
           </button>
         </div>
       </aside>

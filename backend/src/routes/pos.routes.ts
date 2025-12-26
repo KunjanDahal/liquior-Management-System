@@ -11,6 +11,7 @@ import {
   getRecentTransactions,
   getCategories,
   getDepartments,
+  getTaxes,
 } from '../controllers/pos.controller';
 import { authenticateJWT } from '../middleware/auth';
 
@@ -30,6 +31,9 @@ router.get('/customers/:id', getCustomerById);
 
 // Tender routes
 router.get('/tenders', getTenders);
+
+// Tax routes
+router.get('/taxes', getTaxes);
 
 // Category and Department routes
 router.get('/categories', getCategories);

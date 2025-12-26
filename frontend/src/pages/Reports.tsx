@@ -212,7 +212,7 @@ const Reports: React.FC = () => {
                   <span className="text-sm opacity-90">Percentage:</span>
                   <span className="font-semibold">{segment.percentage}%</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-white border-opacity-30">
+                <div className="flex justify-between items-center pt-2 border-t border-white/30">
                   <span className="text-sm opacity-90">Total Revenue:</span>
                   <span className="font-bold text-xl">${segment.revenue.toLocaleString()}</span>
                 </div>

@@ -9,6 +9,9 @@ import authRoutes from './routes/auth.routes';
 import posRoutes from './routes/pos.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import customerRoutes from './routes/customer.routes';
+import storeRoutes from './routes/store.routes';
+import registerRoutes from './routes/register.routes';
+import batchRoutes from './routes/batch.routes';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +43,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/pos', posRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/stores', storeRoutes);
+app.use('/api/registers', registerRoutes);
+app.use('/api/batches', batchRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

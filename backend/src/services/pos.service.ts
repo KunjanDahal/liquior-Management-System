@@ -376,7 +376,7 @@ export class POSService {
     try {
       const result = await this.pool.request().query(`
         SELECT * FROM Customer
-        WHERE AccountNumber = '${accountNumber}'
+        WHERE AccountNumber = '${accountNumber}' AND ISNULL(Inactive, 0) = 0
       `);
 
       return result.recordset.length > 0 ? result.recordset[0] : null;
@@ -394,7 +394,8 @@ export class POSService {
       const result = await this.pool.request().query(`
         SELECT TOP 20 *
         FROM Customer
-        WHERE (
+        WHERE ISNULL(Inactive, 0) = 0
+        AND (
           FirstName LIKE '%${search}%'
           OR LastName LIKE '%${search}%'
           OR Company LIKE '%${search}%'
@@ -508,7 +509,7 @@ export class POSService {
 
     // Get default tax rate (simplified - in reality you'd need more complex tax logic)
     const taxResult = await transaction.request().query(`
-      SELECT TOP 1 Percentage FROM Tax ORDER BY ID
+      SELECT TOP 1 Percentage FROM Tax WHERE ISNULL(Inactive, 0) = 0 ORDER BY ID
     `);
     const taxRate = taxResult.recordset.length > 0 ? taxResult.recordset[0].Percentage : 0;
     const taxTotal = (taxableAmount * taxRate) / 100;
@@ -541,6 +542,7 @@ export class POSService {
       const taxResult = await transaction.request().query(`
         SELECT ID as TaxID, Percentage as TaxPercentage, Description
         FROM Tax
+        WHERE ISNULL(Inactive, 0) = 0
       `);
 
       for (const tax of taxResult.recordset) {

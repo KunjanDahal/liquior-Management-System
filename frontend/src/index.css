@@ -261,7 +261,7 @@ body {
 
   /* Modal Backdrop */
   .modal-backdrop {
-    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center 
+    @apply fixed inset-0 bg-black/50 flex items-center 
            justify-center z-50 backdrop-blur-sm;
   }
 
@@ -290,6 +290,30 @@ body {
 
   .nav-link-active {
     @apply bg-indigo-600 text-white hover:bg-indigo-700;
+  }
+
+  /* Sidebar Scrollbar */
+  aside nav::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  aside nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  aside nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  aside nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Firefox scrollbar */
+  aside nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
   }
 }
 

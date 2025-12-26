@@ -37,11 +37,32 @@ export interface Category {
   Active: boolean;
 }
 
+export interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+  departmentID?: number;
+  active?: boolean;
+}
+
+export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {
+  id: number;
+}
+
 export interface Department {
   ID: number;
   Name: string;
   Description?: string;
   Active: boolean;
+}
+
+export interface CreateDepartmentRequest {
+  name: string;
+  description?: string;
+  active?: boolean;
+}
+
+export interface UpdateDepartmentRequest extends Partial<CreateDepartmentRequest> {
+  id: number;
 }
 
 export interface Supplier {
@@ -61,6 +82,28 @@ export interface Supplier {
   TaxIDNumber?: string;
   Terms?: string;
   Active: boolean;
+}
+
+export interface CreateSupplierRequest {
+  supplierCode: string;
+  companyName: string;
+  contactName?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  phoneNumber?: string;
+  emailAddress?: string;
+  website?: string;
+  accountNumber?: string;
+  taxIDNumber?: string;
+  terms?: string;
+  active?: boolean;
+}
+
+export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> {
+  id: number;
 }
 
 export interface ItemClass {

@@ -351,3 +351,27 @@ export const getDepartments = async (_req: Request, res: Response): Promise<void
     });
   }
 };
+
+/**
+ * Get all active taxes
+ * GET /api/pos/taxes
+ */
+export const getTaxes = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const service = await getPOSService();
+    const taxes = await service.getTaxes();
+
+    res.json({
+      success: true,
+      data: taxes,
+      count: taxes.length,
+    });
+  } catch (error: any) {
+    logger.error('Error getting taxes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get taxes',
+      error: error.message,
+    });
+  }
+};

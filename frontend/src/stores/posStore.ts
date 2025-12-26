@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Item, Customer, Tender, TransactionTender } from '../services/posApi';
+import { Store, Register } from '../types/store.types';
 
 export interface CartItem extends Item {
   cartQuantity: number;
@@ -11,10 +12,13 @@ interface POSState {
   // Cart state
   cart: CartItem[];
   selectedCustomer: Customer | null;
+  selectedStore: Store | null;
+  selectedRegister: Register | null;
   
   // UI state
   isCheckoutModalOpen: boolean;
   isCustomerModalOpen: boolean;
+  isStoreRegisterModalOpen: boolean;
   isLoading: boolean;
   error: string | null;
   
@@ -32,11 +36,16 @@ interface POSState {
   // Customer actions
   selectCustomer: (customer: Customer | null) => void;
   
+  // Store/Register actions
+  selectStoreAndRegister: (store: Store, register: Register) => void;
+  
   // Modal actions
   openCheckoutModal: () => void;
   closeCheckoutModal: () => void;
   openCustomerModal: () => void;
   closeCustomerModal: () => void;
+  openStoreRegisterModal: () => void;
+  closeStoreRegisterModal: () => void;
   
   // Payment actions
   addTender: (tender: TransactionTender) => void;
@@ -61,8 +70,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
   // Initial state
   cart: [],
   selectedCustomer: null,
+  selectedStore: null,
+  selectedRegister: null,
   isCheckoutModalOpen: false,
   isCustomerModalOpen: false,
+  isStoreRegisterModalOpen: false,
   isLoading: false,
   error: null,
   appliedTenders: [],
@@ -141,6 +153,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
     set({ selectedCustomer: customer });
   },
   
+  // Store/Register actions
+  selectStoreAndRegister: (store: Store, register: Register) => {
+    set({ selectedStore: store, selectedRegister: register });
+  },
+  
   // Modal actions
   openCheckoutModal: () => {
     if (get().cart.length === 0) {
@@ -160,6 +177,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
   
   closeCustomerModal: () => {
     set({ isCustomerModalOpen: false });
+  },
+  
+  openStoreRegisterModal: () => {
+    set({ isStoreRegisterModalOpen: true });
+  },
+  
+  closeStoreRegisterModal: () => {
+    set({ isStoreRegisterModalOpen: false });
   },
   
   // Payment actions
